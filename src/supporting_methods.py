@@ -1,12 +1,11 @@
 import numpy as np
 
 
-def ReLu(x):
-    return x * (x >= 0)
-
-
-def dReLu(x):
-    return 1 * (x >= 0)
+def ReLu(x, is_deriv=False):
+    if is_deriv:
+        return 1 * (x >= 0)
+    else:
+        return x * (x >= 0)
 
 
 def sigmoid(x):

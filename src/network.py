@@ -68,34 +68,41 @@ class Network(object):
     def fit(
         self, epochs, batch_size, train_data, train_labels, valid_data, valid_labels
     ):
+        train_accs, train_losses = [], []
+        valid_accs, valid_losses = [], []
         for epoch in range(epochs):
             print("Epoch {}/{}".format(epoch + 1, epochs))
             shuffle(train_data)
             for i in range(batch_size, len(train_data), batch_size):
                 data_sample = train_data[i - batch_size : i - 1]
                 sample_labels = train_labels[i - batch_size : i - 1]
-                layers_output = self.forward_prop(data_sample)
-                layers_dvs = self.backward_prop(
-                    layers_output, data_sample, sample_labels
-                )
+                pre_activations, activations, output = self.forward_prop(data_sample)
+                layers_dvs = self.backward_prop(output, data_sample, sample_labels)
                 self.update_params(layers_dvs)
-            print(
-                "Test data accuracy: {:.2f}".format(
-                    self.evaluate_accuracy(
-                        train_labels, self.get_predictions(layers_output[-1])
-                    )
-                )
-            )
-            print("Test loss:")
 
-    def get_predictions(self, network_output):
+            train_acc, train_loss = self.evaluate(train_data, train_labels, "train")
+            train_accs.append(train_acc)
+            train_losses.append(train_loss)
+            valid_acc, valid_loss = self.evaluate(valid_data, valid_labels, "valid")
+            valid_accs.append(valid_acc)
+            valid_losses.append(valid_loss)
+        return train_accs, train_losses, valid_accs, valid_losses
+
+    def predict(self, data):
+        _, _, output = self.forward_prop(data)
+        return output
+
+    def get_predicted_labels(self, network_output):
         return np.argmax(network_output, axis=1)
 
-    def get_accuracy(self, labels, predictions):
+    def get_accuracy(self, data, labels):
+        predictions = self.get_predicted_labels(self.predict(data))
         return np.sum(predictions, axis=1) == labels / labels.size
 
-    def mean_batch_error(self, output, labels, batch_size):
-        error = np.power(labels - output, 2)
+    def get_loss(self, labels, network_output):
+        batch_size = labels.shape[1]
+        predictions = self.get_predicted_labels(network_output)
+        error = np.power(labels - predictions, 2)
         mean_error = error.sum(axis=1) / batch_size
         return mean_error
 
@@ -103,3 +110,11 @@ class Network(object):
         mean_activations = activations.sum(axis=1) / batch_size
         mean_pre_activations = pre_activations.sum(axis=1) / batch_size
         return mean_activations, mean_pre_activations
+
+    def evaluate(self, data, labels, data_part):
+        accuracy = self.get_accuracy(data, labels)
+        print("{} data accuracy: {:.2f}".format(data_part.capitalize(), accuracy))
+        output = self.predict(data)
+        loss = self.get_loss(labels, output)
+        print("{} loss: {:.2f}".format(data_part, loss))
+        return accuracy, loss
