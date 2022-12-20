@@ -28,7 +28,6 @@ class Network(object):
         hidden_layers = []
         for i in range(self.hidden_count):
             if i == 0:
-                print("{}, {}".format(self.hidden_size, self.input_size))
                 layer = Layer(self.hidden_size, self.input_size)
             else:
                 layer = Layer(self.hidden_size, self.hidden_size)
@@ -51,19 +50,15 @@ class Network(object):
         curr_data = batch
         for layer in self.hidden_layers:
             data = layer.weights.dot(curr_data)
-            data += layer.bias_vector
+            data = data + np.tile(layer.biases, (1, data.shape[1]))
             pre_activations.append(data)
             curr_data = self.hidden_act_fun(data)
             activations.append(curr_data)
 
         data = self.output_layer.weights.dot(curr_data)
-        data += self.output_layer.bias_vector
-        pre_output = data
+        data = data + np.tile(self.output_layer.biases, (1, data.shape[1]))
         output = self.output_act_fun(data)
-        return pre_activations, activations, pre_output, output
-
-    def backward_prop(self, loss, pre_activations, activations, data):
-        pass
+        return pre_activations, activations, output
 
     def update_params(self, layers_dWs, layers_dBs, output_dWs, output_dBs):
         """A method to update the parameters of the model.
@@ -76,10 +71,19 @@ class Network(object):
         """
         layers = self.hidden_layers
         for i in range(len(layers)):
-            layers[i].weights -= layers_dWs[i] * self.learning_rate
-            layers[i].bias -= layers_dBs[i] * self.learning_rate
-        self.output_layer.weights -= output_dWs
-        self.output_layer.bias -= output_dBs
+            layers[i].weights = layers[i].weights - self.learning_rate * layers_dWs[i]
+            layers[i].biases[:, 0] = (
+                layers[i].biases[:, 0] - self.learning_rate * layers_dBs[i]
+            )
+        self.output_layer.weights = (
+            self.output_layer.weights - self.learning_rate * output_dWs
+        )
+        self.output_layer.biases[:, 0] = (
+            self.output_layer.biases[:, 0] - self.learning_rate * output_dBs
+        )
+        # print("update weights and biases")
+        # print(self.output_layer.weights)
+        # print(self.output_layer.biases)
 
     def fit(
         self, epochs, batch_size, train_data, train_labels, valid_data, valid_labels
@@ -103,15 +107,14 @@ class Network(object):
             print("Epoch {}/{}".format(epoch + 1, epochs))
             shuffle(train_data)
             for i in range(batch_size, len(train_data), batch_size):
-                data_sample = train_data[i - batch_size : i - 1]
-                sample_labels = train_labels[i - batch_size : i - 1]
+                data_sample = train_data[i - batch_size : i].T
+                sample_labels = train_labels[i - batch_size : i].T
                 pre_activations, activations, output = self.forward_prop(data_sample)
-                layers_dWs, layers_dBs, output_dWs, output_dBs = self.backward_prop(
-                    output - sample_labels,
-                    pre_activations,
-                    activations,
+                output_dws, output_dbs, layers_dws, layers_dbs = self.backward_prop(
+                    data_sample, pre_activations, activations, output - sample_labels
                 )
-                self.update_params(layers_dWs, layers_dBs, output_dWs, output_dBs)
+                print(output - sample_labels)
+                self.update_params(layers_dws, layers_dbs, output_dws, output_dbs)
 
             train_acc, train_loss = self.evaluate(train_data, train_labels, "train")
             train_accs.append(train_acc)
@@ -119,59 +122,70 @@ class Network(object):
             valid_acc, valid_loss = self.evaluate(valid_data, valid_labels, "valid")
             valid_accs.append(valid_acc)
             valid_losses.append(valid_loss)
+            print("---------------------------------------------------------")
         return train_accs, train_losses, valid_accs, valid_losses
 
     def predict(self, data):
-        _, _, output = self.forward_prop(data)
+        _, _, output = self.forward_prop(data.T)
         return output
 
     def get_predicted_labels(self, network_output):
-        return np.argmax(network_output, axis=1)
+        max = np.argmax(network_output, axis=0)
+        one_hot = np.zeros((max.shape[0], self.output_size))
+        one_hot[np.arange(max.shape[0]), max] = 1
+
+        return one_hot
 
     def get_accuracy(self, data, labels):
         predictions = self.get_predicted_labels(self.predict(data))
-        return np.sum(predictions, axis=1) == labels / labels.size
+        return np.sum(predictions == labels) / labels.shape[0]
 
     def get_loss(self, labels, network_output):
         batch_size = labels.shape[1]
         predictions = self.get_predicted_labels(network_output)
         error = np.power(labels - predictions, 2)
-        mean_error = error.sum(axis=1) / batch_size
+        mean_error = np.sum(error) / batch_size
         return mean_error
 
     def evaluate(self, data, labels, data_part):
         accuracy = self.get_accuracy(data, labels)
-        print("{} data accuracy: {:.2f}".format(data_part.capitalize(), accuracy))
+        print("{} data accuracy: {:.4f}".format(data_part.capitalize(), accuracy))
         output = self.predict(data)
         loss = self.get_loss(labels, output)
-        print("{} loss: {:.2f}".format(data_part, loss))
+        print("{} loss: {:.4f}".format(data_part, loss))
         return accuracy, loss
 
-    def back_prop(self, input, pre_activations, activations, output_error):
-        batch_size = output_error.size
+    def backward_prop(self, input, pre_activations, activations, output_error):
+        batch_size = output_error.shape[1]
         dz_out = output_error
-        dw_out = dz_out.dot(activations[-1]) / batch_size
-        db_out = np.sum(dz_out, 2) / batch_size
+        dw_out = dz_out.dot(activations[-1].T) / batch_size
+        db_out = np.sum(dz_out, 1) / batch_size
 
         dz_layers = []
         dw_layers = []
         db_layers = []
 
-        for layer in range(self.hidden_count-1, -1, -1):
+        for layer in range(self.hidden_count - 1, -1, -1):
             if layer == self.hidden_count - 1:
-                dz_layer = self.hidden_layers[layer].weights.dot(dz_out) * self.hidden_act_fun(pre_activations[layer], True)
+                dz_layer = self.output_layer.weights.T.dot(
+                    dz_out
+                ) * self.hidden_act_fun(pre_activations[layer], True)
             else:
-                dz_layer = self.hidden_layers[layer].weights.dot(dz_layers[0]) * self.hidden_act_fun(pre_activations[layer], True)
+                dz_layer = self.hidden_layers[layer + 1].weights.T.dot(
+                    dz_layers[0]
+                ) * self.hidden_act_fun(pre_activations[layer], True)
 
             if layer != 0:
-                dw_layer = dz_layer.dot(activations[layer-1]) / batch_size
+                dw_layer = dz_layer.dot(activations[layer - 1].T) / batch_size
             else:
-                dw_layer = dz_layer.dot(input) / batch_size
+                dw_layer = dz_layer.dot(input.T) / batch_size
 
-            db_layer = np.sum(dz_layer, 2) / batch_size
+            db_layer = np.mean(dz_layer, 1)
 
             dz_layers.insert(0, dz_layer)
             dw_layers.insert(0, dw_layer)
+            # print(f"DW layer = {dw_layer}")
+            # print(f"DB layer = {db_layer}")
             db_layers.insert(0, db_layer)
 
         return dw_out, db_out, dw_layers, db_layers
