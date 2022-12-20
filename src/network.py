@@ -12,6 +12,7 @@ class Network(object):
         output_size,
         hidden_act_fun,
         output_act_fun,
+        learning_rate,
     ):
         self.hidden_count = hidden_count
         self.hidden_size = hidden_size
@@ -19,6 +20,7 @@ class Network(object):
         self.output_size = output_size
         self.hidden_act_fun = hidden_act_fun
         self.output_act_fun = output_act_fun
+        self.learning_rate = learning_rate
 
         self.hidden_layers, self.output_layer = self.init_layers()
 
@@ -59,15 +61,41 @@ class Network(object):
         output = self.output_act_fun(data)
         return pre_activations, activations, output
 
-    def backward_prop(self, layers_output, input, output):
+    def backward_prop(self, loss, pre_activations, activations, data):
         pass
 
-    def update_params(self, layers_dvs):
-        pass
+    def update_params(self, layers_dWs, layers_dBs, output_dWs, output_dBs):
+        """A method to update the parameters of the model.
+
+        Args:
+            layers_dWs (list): list of layers weights.
+            layers_dBs (list): list of layers biases.
+            output_dWs (np.array): array of output layer weights.
+            output_dBs (np.array): array of output layer biases.
+        """
+        layers = self.hidden_layers
+        for i in range(len(layers)):
+            layers[i].weights -= layers_dWs[i] * self.learning_rate
+            layers[i].bias -= layers_dBs[i] * self.learning_rate
+        self.output_layer.weights -= output_dWs
+        self.output_layer.bias -= output_dBs
 
     def fit(
         self, epochs, batch_size, train_data, train_labels, valid_data, valid_labels
     ):
+        """A method to train the model.
+
+        Args:
+            epochs (int): number of epochs.
+            batch_size (int): size of the batch.
+            train_data (np.array): training data.
+            train_labels (np.array): training labels.
+            valid_data (np.array): validation data.
+            valid_labels (np.array): validation labels.
+
+        Returns:
+            lists: lists of accuracies and losses for each epoch.
+        """
         train_accs, train_losses = [], []
         valid_accs, valid_losses = [], []
         for epoch in range(epochs):
@@ -77,8 +105,12 @@ class Network(object):
                 data_sample = train_data[i - batch_size : i - 1]
                 sample_labels = train_labels[i - batch_size : i - 1]
                 pre_activations, activations, output = self.forward_prop(data_sample)
-                layers_dvs = self.backward_prop(output, data_sample, sample_labels)
-                self.update_params(layers_dvs)
+                layers_dWs, layers_dBs, output_dWs, output_dBs = self.backward_prop(
+                    output - sample_labels,
+                    pre_activations,
+                    activations,
+                )
+                self.update_params(layers_dWs, layers_dBs, output_dWs, output_dBs)
 
             train_acc, train_loss = self.evaluate(train_data, train_labels, "train")
             train_accs.append(train_acc)
@@ -105,11 +137,6 @@ class Network(object):
         error = np.power(labels - predictions, 2)
         mean_error = error.sum(axis=1) / batch_size
         return mean_error
-
-    def mean_batch(self, activations, pre_activations, batch_size):
-        mean_activations = activations.sum(axis=1) / batch_size
-        mean_pre_activations = pre_activations.sum(axis=1) / batch_size
-        return mean_activations, mean_pre_activations
 
     def evaluate(self, data, labels, data_part):
         accuracy = self.get_accuracy(data, labels)
