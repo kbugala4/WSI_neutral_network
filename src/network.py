@@ -58,8 +58,9 @@ class Network(object):
 
         data = self.output_layer.weights.dot(curr_data)
         data += self.output_layer.bias_vector
+        pre_output = data
         output = self.output_act_fun(data)
-        return pre_activations, activations, output
+        return pre_activations, activations, pre_output, output
 
     def backward_prop(self, loss, pre_activations, activations, data):
         pass
@@ -145,3 +146,32 @@ class Network(object):
         loss = self.get_loss(labels, output)
         print("{} loss: {:.2f}".format(data_part, loss))
         return accuracy, loss
+
+    def back_prop(self, input, pre_activations, activations, output_error):
+        batch_size = output_error.size
+        dz_out = output_error
+        dw_out = dz_out.dot(activations[-1]) / batch_size
+        db_out = np.sum(dz_out, 2) / batch_size
+
+        dz_layers = []
+        dw_layers = []
+        db_layers = []
+
+        for layer in range(self.hidden_count-1, -1, -1):
+            if layer == self.hidden_count - 1:
+                dz_layer = self.hidden_layers[layer].weights.dot(dz_out) * self.hidden_act_fun(pre_activations[layer], True)
+            else:
+                dz_layer = self.hidden_layers[layer].weights.dot(dz_layers[0]) * self.hidden_act_fun(pre_activations[layer], True)
+
+            if layer != 0:
+                dw_layer = dz_layer.dot(activations[layer-1]) / batch_size
+            else:
+                dw_layer = dz_layer.dot(input) / batch_size
+
+            db_layer = np.sum(dz_layer, 2) / batch_size
+
+            dz_layers.insert(0, dz_layer)
+            dw_layers.insert(0, dw_layer)
+            db_layers.insert(0, db_layer)
+
+        return dw_out, db_out, dw_layers, db_layers
