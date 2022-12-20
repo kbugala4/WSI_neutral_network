@@ -5,6 +5,10 @@ def ReLu(x):
     return x * (x >= 0)
 
 
+def dReLu(x):
+    return 1 * (x >= 0)
+
+
 def sigmoid(x):
     return 1.0 / (1.0 + np.exp(-x))
 
