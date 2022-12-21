@@ -17,13 +17,5 @@ def sigmoid(x, is_deriv=False):
 
 
 def softmax(x):
-    # print("kebab na cienkim")
-    # # print(x)
-    # # print(np.exp(x))
-    # res = np.exp(x) / np.sum(np.exp(x), axis=0)
-    # print(x.shape)
-    # print(res.shape)
-    # print(np.sum(res, axis=0))
-    # return np.exp(x) / np.sum(np.exp(x), axis=0)
-    exp = np.exp(x - np.max(x))
-    return exp / exp.sum(axis=0)
+    exp = np.exp(x - x.max())
+    return exp / np.sum(exp, axis=0)

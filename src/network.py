@@ -55,14 +55,17 @@ class Network(object):
         #     curr_data = self.hidden_act_fun(data)
         #     activations.append(curr_data)
         for i in range(self.hidden_count):
-            data = self.hidden_layers[i].weights.dot(curr_data)
-            data = data + np.tile(self.hidden_layers[i].biases, (1, data.shape[1]))
+            data = (
+                self.hidden_layers[i].weights.dot(curr_data)
+                + self.hidden_layers[i].biases
+            )
+            # data = data + np.tile(self.hidden_layers[i].biases, (1, data.shape[1]))
             pre_activations.append(data)
             curr_data = self.hidden_act_fun(data)
             activations.append(curr_data)
 
-        data = self.output_layer.weights.dot(curr_data)
-        data = data + np.tile(self.output_layer.biases, (1, data.shape[1]))
+        data = self.output_layer.weights.dot(curr_data) + self.output_layer.biases
+        # data = data + np.tile(self.output_layer.biases, (1, data.shape[1]))
         output = self.output_act_fun(data)
         # print(
         #     "activ: {}, {}".format(np.min(activations[0]), np.min(pre_activations[0]))
@@ -80,15 +83,20 @@ class Network(object):
             output_dBs (np.array): array of output layer biases.
         """
         # layers = self.hidden_layers
-        print("WAGI UKRYTEJ PRZED:")
-        print(self.hidden_layers[1].weights[10, :])
-        print("DW WAG:")
-        print(layers_dWs[1][10, :])
-        print(self.learning_rate * layers_dWs[1][10, :])
+        # print("WAGI UKRYTEJ PRZED:")
+        # print(self.hidden_layers[1].weights[10, :])
+        # print("DW WAG:")
+        # print(layers_dWs[1][10, :])
+        # print(self.learning_rate * layers_dWs[1][10, :])
         for i in range(self.hidden_count):
             # print("przed")
             # print(self.hidden_layers[i].weights.shape)
-            self.hidden_layers[i].weights -= self.learning_rate * layers_dWs[i]
+            self.hidden_layers[i].vd_weights = (
+                0.9 * self.hidden_layers[i].vd_weights + (1.0 - 0.9) * layers_dWs[i]
+            )
+            self.hidden_layers[i].weights -= (
+                self.learning_rate * self.hidden_layers[i].vd_weights
+            )
             # print("SHAPES:")
             # print(self.hidden_layers[i].weights.shape)
             # print(self.hidden_layers[i].biases.shape)
@@ -97,25 +105,30 @@ class Network(object):
             # layers[i].biases[:, 0] = (
             #     layers[i].biases[:, 0] - self.learning_rate * layers_dBs[i]
             # )
-            self.hidden_layers[i].biases -= self.learning_rate * np.reshape(
-                layers_dBs[i], (self.hidden_layers[i].neurons_count, 1)
+            self.hidden_layers[i].vd_biases = 0.9 * self.hidden_layers[i].vd_biases + (
+                1.0 - 0.9
+            ) * np.reshape(layers_dBs[i], (self.hidden_layers[i].neurons_count, 1))
+            self.hidden_layers[i].biases -= (
+                self.learning_rate * self.hidden_layers[i].vd_biases
             )
-        print("WAGI UKRYTEJ:")
-        print(self.hidden_layers[1].weights[10, :])
-        print("WAGI WYJSCIOWEJ PRZED:")
-        print(self.output_layer.weights[:, 5])
-        # print(self.output_layer.weights)s
-        self.output_layer.weights = (
-            self.output_layer.weights - self.learning_rate * output_dWs
+        # print("WAGI UKRYTEJ:")
+        # print(self.hidden_layers[1].weights[10, :])
+        # print("WAGI WYJSCIOWEJ PRZED:")
+        # print(self.output_layer.weights[:, 5])
+        # print(self.output_layer.weights)
+        self.output_layer.vd_weights = (
+            0.9 * self.output_layer.vd_weights + (1.0 - 0.9) * output_dWs
         )
-        print("WAGI WYJSCIOWEJ PO:")
-        print(self.output_layer.weights[:, 5])
+        self.output_layer.weights -= self.learning_rate * self.output_layer.vd_weights
+        # print("WAGI WYJSCIOWEJ PO:")
+        # print(self.output_layer.weights[:, 5])
         # self.output_layer.biases[:, 0] = (
         #     self.output_layer.biases[:, 0] - self.learning_rate * output_dBs
         # )
-        self.output_layer.biases -= self.learning_rate * np.reshape(
-            output_dBs, (self.output_layer.neurons_count, 1)
-        )
+        self.output_layer.vd_biases = 0.9 * self.output_layer.vd_biases + (
+            1.0 - 0.9
+        ) * np.reshape(output_dBs, (self.output_layer.neurons_count, 1))
+        self.output_layer.biases -= self.learning_rate * self.output_layer.vd_biases
         # print("update weights and biases")
         # print(self.output_layer.weights)
         # print(self.output_layer.biases)
@@ -149,8 +162,8 @@ class Network(object):
             # )
             # shuffle(train_data)
             np.random.shuffle(train_data)
-            # print("TRAIN:")
-            # print(train_data[0, :])
+            print("TRAIN:")
+            print(train_data[0, :])
             for i in range(batch_size, len(train_data), batch_size):
                 data_sample = train_data[i - batch_size : i].T
                 sample_labels = train_labels[i - batch_size : i].T
@@ -245,8 +258,8 @@ class Network(object):
     def backward_prop(self, input, pre_activations, activations, output_error):
         batch_size = output_error.shape[1]
         dz_out = 2 * output_error
-        dw_out = dz_out.dot(activations[-1].T) / batch_size
-        db_out = np.sum(dz_out, 1) / batch_size
+        dw_out = 1 / batch_size * dz_out.dot(activations[-1].T)
+        db_out = 1 / batch_size * np.sum(dz_out, 1, keepdims=True)
 
         dz_layers = []
         dw_layers = []
@@ -263,11 +276,11 @@ class Network(object):
                 ) * self.hidden_act_fun(pre_activations[layer], True)
 
             if layer != 0:
-                dw_layer = dz_layer.dot(activations[layer].T) / batch_size
+                dw_layer = 1 / batch_size * dz_layer.dot(pre_activations[layer].T)
             else:
-                dw_layer = dz_layer.dot(input.T) / batch_size
+                dw_layer = 1 / batch_size * dz_layer.dot(input.T)
 
-            db_layer = np.sum(dz_layer, 1) / batch_size
+            db_layer = 1 / batch_size * np.sum(dz_layer, 1, keepdims=True)
             # print(np.mean(dz_layer), np.mean(dw_layer))
             dz_layers.insert(0, dz_layer)
             dw_layers.insert(0, dw_layer)
