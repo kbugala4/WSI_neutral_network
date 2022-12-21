@@ -48,9 +48,15 @@ class Network(object):
         activations = []
 
         curr_data = batch
-        for layer in self.hidden_layers:
-            data = layer.weights.dot(curr_data)
-            data = data + np.tile(layer.biases, (1, data.shape[1]))
+        # for layer in self.hidden_layers:
+        #     data = layer.weights.dot(curr_data)
+        #     data = data + np.tile(layer.biases, (1, data.shape[1]))
+        #     pre_activations.append(data)
+        #     curr_data = self.hidden_act_fun(data)
+        #     activations.append(curr_data)
+        for i in range(self.hidden_count):
+            data = self.hidden_layers[i].weights.dot(curr_data)
+            data = data + np.tile(self.hidden_layers[i].biases, (1, data.shape[1]))
             pre_activations.append(data)
             curr_data = self.hidden_act_fun(data)
             activations.append(curr_data)
@@ -73,17 +79,42 @@ class Network(object):
             output_dWs (np.array): array of output layer weights.
             output_dBs (np.array): array of output layer biases.
         """
-        layers = self.hidden_layers
-        for i in range(len(layers)):
-            layers[i].weights = layers[i].weights - self.learning_rate * layers_dWs[i]
-            layers[i].biases[:, 0] = (
-                layers[i].biases[:, 0] - self.learning_rate * layers_dBs[i]
+        # layers = self.hidden_layers
+        print("WAGI UKRYTEJ PRZED:")
+        print(self.hidden_layers[1].weights[10, :])
+        print("DW WAG:")
+        print(layers_dWs[1][10, :])
+        print(self.learning_rate * layers_dWs[1][10, :])
+        for i in range(self.hidden_count):
+            # print("przed")
+            # print(self.hidden_layers[i].weights.shape)
+            self.hidden_layers[i].weights -= self.learning_rate * layers_dWs[i]
+            # print("SHAPES:")
+            # print(self.hidden_layers[i].weights.shape)
+            # print(self.hidden_layers[i].biases.shape)
+            # print(layers_dWs[i].shape)
+            # print(layers_dBs[i].shape)
+            # layers[i].biases[:, 0] = (
+            #     layers[i].biases[:, 0] - self.learning_rate * layers_dBs[i]
+            # )
+            self.hidden_layers[i].biases -= self.learning_rate * np.reshape(
+                layers_dBs[i], (self.hidden_layers[i].neurons_count, 1)
             )
+        print("WAGI UKRYTEJ:")
+        print(self.hidden_layers[1].weights[10, :])
+        print("WAGI WYJSCIOWEJ PRZED:")
+        print(self.output_layer.weights[:, 5])
+        # print(self.output_layer.weights)s
         self.output_layer.weights = (
             self.output_layer.weights - self.learning_rate * output_dWs
         )
-        self.output_layer.biases[:, 0] = (
-            self.output_layer.biases[:, 0] - self.learning_rate * output_dBs
+        print("WAGI WYJSCIOWEJ PO:")
+        print(self.output_layer.weights[:, 5])
+        # self.output_layer.biases[:, 0] = (
+        #     self.output_layer.biases[:, 0] - self.learning_rate * output_dBs
+        # )
+        self.output_layer.biases -= self.learning_rate * np.reshape(
+            output_dBs, (self.output_layer.neurons_count, 1)
         )
         # print("update weights and biases")
         # print(self.output_layer.weights)
@@ -116,7 +147,10 @@ class Network(object):
             # self.hidden_layers[2].weights[3, 0],
             # )
             # )
-            shuffle(train_data)
+            # shuffle(train_data)
+            np.random.shuffle(train_data)
+            # print("TRAIN:")
+            # print(train_data[0, :])
             for i in range(batch_size, len(train_data), batch_size):
                 data_sample = train_data[i - batch_size : i].T
                 sample_labels = train_labels[i - batch_size : i].T
@@ -125,22 +159,34 @@ class Network(object):
                     data_sample,
                     pre_activations,
                     activations,
-                    activations[-1] - sample_labels,
+                    output - sample_labels,
                 )
                 # print("TUTAJ")
                 # print(output)
+                # print(output.shape)
                 # print(sample_labels)
-                # print(output - sample_labels)
+                # print(sample_labels.shape)
+                # print(np.mean(output - sample_labels, axis=0))
                 # print(self.hidden_layers[0].weights[0, 28])
                 # print("testuje")
                 # print(layers_dws[2][3, 3])
                 # print("przed")
                 # print(self.hidden_layers[2].weights[3, 3])
                 self.update_params(layers_dws, layers_dbs, output_dws, output_dbs)
+                # print(self.get_predicted_labels(output))
+                # print(np.argmax(sample_labels, axis=0))
+                # print(sample_labels.shape)
+                # print(
+                #     f"accuracy: {np.sum(self.get_predicted_labels(output) == np.argmax(sample_labels, axis=0)) / sample_labels.shape[1]}"
+                # )
+                # if epoch % 10 == 0:
+                #   print(
+                #       f"accuracy: {np.sum(self.get_predicted_labels(output) == np.argmax(sample_labels, axis=0)) / sample_labels.shape[1]}"
+                #   )
 
-                # print("testuje")
-                # print("po")
-                # print(self.hidden_layers[2].weights[3, 3])
+            # print("testuje")
+            # print("po")
+            # print(self.hidden_layers[2].weights[3, 3])
 
             train_acc, train_loss = self.evaluate(train_data, train_labels, "train")
             train_accs.append(train_acc)
@@ -165,8 +211,6 @@ class Network(object):
         # one_hot = np.zeros((max_.shape[0], self.output_size))
         # one_hot[np.arange(max_.shape[0]), max_] = 1
         # return one_hot
-        print("szsrj")
-        print(network_output.shape)
         return np.argmax(network_output, axis=0)
 
     def get_accuracy(self, data, labels):
@@ -199,8 +243,8 @@ class Network(object):
         return accuracy, loss
 
     def backward_prop(self, input, pre_activations, activations, output_error):
-        batch_size = output_error.shape[0]
-        dz_out = output_error
+        batch_size = output_error.shape[1]
+        dz_out = 2 * output_error
         dw_out = dz_out.dot(activations[-1].T) / batch_size
         db_out = np.sum(dz_out, 1) / batch_size
 
@@ -219,11 +263,11 @@ class Network(object):
                 ) * self.hidden_act_fun(pre_activations[layer], True)
 
             if layer != 0:
-                dw_layer = dz_layer.dot(activations[layer - 1].T) / batch_size
+                dw_layer = dz_layer.dot(activations[layer].T) / batch_size
             else:
                 dw_layer = dz_layer.dot(input.T) / batch_size
 
-            db_layer = np.mean(dz_layer, 1)
+            db_layer = np.sum(dz_layer, 1) / batch_size
             # print(np.mean(dz_layer), np.mean(dw_layer))
             dz_layers.insert(0, dz_layer)
             dw_layers.insert(0, dw_layer)
@@ -234,3 +278,49 @@ class Network(object):
         # print("dw, db:")
         # print(np.mean(dw_layers[-1], axis=0), np.mean(db_layers[-1], axis=0))
         return dw_out, db_out, dw_layers, db_layers
+
+
+if __name__ == "__main__":
+
+    from data_reader import DataReader
+    from supporting_methods import ReLu, softmax, sigmoid
+    from sklearn.datasets import load_digits
+
+    dataset = load_digits()
+
+    digits_data = dataset["data"]
+
+    digits_labels = dataset["target"]
+
+    data_reader = DataReader(data=digits_data, labels=digits_labels)
+
+    (
+        train_data,
+        train_labels,
+        test_data,
+        test_labels,
+        valid_data,
+        valid_labels,
+    ) = data_reader.split_data()
+
+    input_size = train_data.shape[1]
+    output_size = train_labels.shape[1]
+
+    net = Network(
+        hidden_count=2,
+        hidden_size=20,
+        input_size=input_size,
+        output_size=output_size,
+        hidden_act_fun=ReLu,
+        output_act_fun=softmax,
+        learning_rate=0.2,
+    )
+
+    train_accs, train_losses, valid_accs, valid_losses = net.fit(
+        epochs=100,
+        batch_size=128,
+        train_data=train_data,
+        train_labels=train_labels,
+        valid_data=valid_data,
+        valid_labels=valid_labels,
+    )

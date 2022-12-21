@@ -24,4 +24,6 @@ def softmax(x):
     # print(x.shape)
     # print(res.shape)
     # print(np.sum(res, axis=0))
-    return np.exp(x) / np.sum(np.exp(x), axis=0)
+    # return np.exp(x) / np.sum(np.exp(x), axis=0)
+    exp = np.exp(x - np.max(x))
+    return exp / exp.sum(axis=0)
