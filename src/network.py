@@ -58,6 +58,10 @@ class Network(object):
         data = self.output_layer.weights.dot(curr_data)
         data = data + np.tile(self.output_layer.biases, (1, data.shape[1]))
         output = self.output_act_fun(data)
+        # print(
+        #     "activ: {}, {}".format(np.min(activations[0]), np.min(pre_activations[0]))
+        # )
+
         return pre_activations, activations, output
 
     def update_params(self, layers_dWs, layers_dBs, output_dWs, output_dBs):
@@ -105,16 +109,38 @@ class Network(object):
         valid_accs, valid_losses = [], []
         for epoch in range(epochs):
             print("Epoch {}/{}".format(epoch + 1, epochs))
+
+            # print(
+            # "{}, {}".format(
+            # self.hidden_layers[2].weights[3, 3],
+            # self.hidden_layers[2].weights[3, 0],
+            # )
+            # )
             shuffle(train_data)
             for i in range(batch_size, len(train_data), batch_size):
                 data_sample = train_data[i - batch_size : i].T
                 sample_labels = train_labels[i - batch_size : i].T
                 pre_activations, activations, output = self.forward_prop(data_sample)
                 output_dws, output_dbs, layers_dws, layers_dbs = self.backward_prop(
-                    data_sample, pre_activations, activations, output - sample_labels
+                    data_sample,
+                    pre_activations,
+                    activations,
+                    activations[-1] - sample_labels,
                 )
-                print(output - sample_labels)
+                # print("TUTAJ")
+                # print(output)
+                # print(sample_labels)
+                # print(output - sample_labels)
+                # print(self.hidden_layers[0].weights[0, 28])
+                # print("testuje")
+                # print(layers_dws[2][3, 3])
+                # print("przed")
+                # print(self.hidden_layers[2].weights[3, 3])
                 self.update_params(layers_dws, layers_dbs, output_dws, output_dbs)
+
+                # print("testuje")
+                # print("po")
+                # print(self.hidden_layers[2].weights[3, 3])
 
             train_acc, train_loss = self.evaluate(train_data, train_labels, "train")
             train_accs.append(train_acc)
@@ -127,23 +153,40 @@ class Network(object):
 
     def predict(self, data):
         _, _, output = self.forward_prop(data.T)
+        # print("output")
+        # print(output)
         return output
 
     def get_predicted_labels(self, network_output):
-        max = np.argmax(network_output, axis=0)
-        one_hot = np.zeros((max.shape[0], self.output_size))
-        one_hot[np.arange(max.shape[0]), max] = 1
-
-        return one_hot
+        # print(f"output shape: {network_output.shape}")
+        # max_ = np.argmax(network_output, axis=0)
+        # # print(np.max(max_))
+        # # print(np.argmax(network_output, axis=0))
+        # one_hot = np.zeros((max_.shape[0], self.output_size))
+        # one_hot[np.arange(max_.shape[0]), max_] = 1
+        # return one_hot
+        print("szsrj")
+        print(network_output.shape)
+        return np.argmax(network_output, axis=0)
 
     def get_accuracy(self, data, labels):
+        # predictions = self.get_predicted_labels(self.predict(data))
+        # print("kiufe")
+        # print(predictions.shape)
+        # print(labels.shape)
+        # print(np.sum(np.argmax(labels, axis=1) == np.argmax(predictions, axis=1)))
+        # print(np.sum(predictions == labels))
+        # return np.sum(predictions == labels) / labels.shape[0]
+        # return (
+        #     np.sum(np.argmax(labels, axis=1) == np.argmax(predictions, axis=1))
+        #     / labels.shape[0]
+        # )
         predictions = self.get_predicted_labels(self.predict(data))
-        return np.sum(predictions == labels) / labels.shape[0]
+        return np.sum(predictions == np.argmax(labels, axis=1)) / labels.shape[0]
 
     def get_loss(self, labels, network_output):
-        batch_size = labels.shape[1]
-        predictions = self.get_predicted_labels(network_output)
-        error = np.power(labels - predictions, 2)
+        batch_size = labels.shape[0]
+        error = np.power(labels.T - network_output, 2)
         mean_error = np.sum(error) / batch_size
         return mean_error
 
@@ -156,7 +199,7 @@ class Network(object):
         return accuracy, loss
 
     def backward_prop(self, input, pre_activations, activations, output_error):
-        batch_size = output_error.shape[1]
+        batch_size = output_error.shape[0]
         dz_out = output_error
         dw_out = dz_out.dot(activations[-1].T) / batch_size
         db_out = np.sum(dz_out, 1) / batch_size
@@ -181,11 +224,13 @@ class Network(object):
                 dw_layer = dz_layer.dot(input.T) / batch_size
 
             db_layer = np.mean(dz_layer, 1)
-
+            # print(np.mean(dz_layer), np.mean(dw_layer))
             dz_layers.insert(0, dz_layer)
             dw_layers.insert(0, dw_layer)
             # print(f"DW layer = {dw_layer}")
             # print(f"DB layer = {db_layer}")
             db_layers.insert(0, db_layer)
 
+        # print("dw, db:")
+        # print(np.mean(dw_layers[-1], axis=0), np.mean(db_layers[-1], axis=0))
         return dw_out, db_out, dw_layers, db_layers
