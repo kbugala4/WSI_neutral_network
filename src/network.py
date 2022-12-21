@@ -48,216 +48,24 @@ class Network(object):
         activations = []
 
         curr_data = batch
-        # for layer in self.hidden_layers:
-        #     data = layer.weights.dot(curr_data)
-        #     data = data + np.tile(layer.biases, (1, data.shape[1]))
-        #     pre_activations.append(data)
-        #     curr_data = self.hidden_act_fun(data)
-        #     activations.append(curr_data)
         for i in range(self.hidden_count):
             data = (
                 self.hidden_layers[i].weights.dot(curr_data)
                 + self.hidden_layers[i].biases
             )
-            # data = data + np.tile(self.hidden_layers[i].biases, (1, data.shape[1]))
             pre_activations.append(data)
             curr_data = self.hidden_act_fun(data)
             activations.append(curr_data)
 
         data = self.output_layer.weights.dot(curr_data) + self.output_layer.biases
-        # data = data + np.tile(self.output_layer.biases, (1, data.shape[1]))
         output = self.output_act_fun(data)
-        # print(
-        #     "activ: {}, {}".format(np.min(activations[0]), np.min(pre_activations[0]))
-        # )
 
         return pre_activations, activations, output
 
-    def update_params(self, layers_dWs, layers_dBs, output_dWs, output_dBs):
-        """A method to update the parameters of the model.
-
-        Args:
-            layers_dWs (list): list of layers weights.
-            layers_dBs (list): list of layers biases.
-            output_dWs (np.array): array of output layer weights.
-            output_dBs (np.array): array of output layer biases.
-        """
-        # layers = self.hidden_layers
-        # print("WAGI UKRYTEJ PRZED:")
-        # print(self.hidden_layers[1].weights[10, :])
-        # print("DW WAG:")
-        # print(layers_dWs[1][10, :])
-        # print(self.learning_rate * layers_dWs[1][10, :])
-        for i in range(self.hidden_count):
-            # print("przed")
-            # print(self.hidden_layers[i].weights.shape)
-            self.hidden_layers[i].vd_weights = (
-                0.9 * self.hidden_layers[i].vd_weights + (1.0 - 0.9) * layers_dWs[i]
-            )
-            self.hidden_layers[i].weights -= (
-                self.learning_rate * self.hidden_layers[i].vd_weights
-            )
-            # print("SHAPES:")
-            # print(self.hidden_layers[i].weights.shape)
-            # print(self.hidden_layers[i].biases.shape)
-            # print(layers_dWs[i].shape)
-            # print(layers_dBs[i].shape)
-            # layers[i].biases[:, 0] = (
-            #     layers[i].biases[:, 0] - self.learning_rate * layers_dBs[i]
-            # )
-            self.hidden_layers[i].vd_biases = 0.9 * self.hidden_layers[i].vd_biases + (
-                1.0 - 0.9
-            ) * np.reshape(layers_dBs[i], (self.hidden_layers[i].neurons_count, 1))
-            self.hidden_layers[i].biases -= (
-                self.learning_rate * self.hidden_layers[i].vd_biases
-            )
-        # print("WAGI UKRYTEJ:")
-        # print(self.hidden_layers[1].weights[10, :])
-        # print("WAGI WYJSCIOWEJ PRZED:")
-        # print(self.output_layer.weights[:, 5])
-        # print(self.output_layer.weights)
-        self.output_layer.vd_weights = (
-            0.9 * self.output_layer.vd_weights + (1.0 - 0.9) * output_dWs
-        )
-        self.output_layer.weights -= self.learning_rate * self.output_layer.vd_weights
-        # print("WAGI WYJSCIOWEJ PO:")
-        # print(self.output_layer.weights[:, 5])
-        # self.output_layer.biases[:, 0] = (
-        #     self.output_layer.biases[:, 0] - self.learning_rate * output_dBs
-        # )
-        self.output_layer.vd_biases = 0.9 * self.output_layer.vd_biases + (
-            1.0 - 0.9
-        ) * np.reshape(output_dBs, (self.output_layer.neurons_count, 1))
-        self.output_layer.biases -= self.learning_rate * self.output_layer.vd_biases
-        # print("update weights and biases")
-        # print(self.output_layer.weights)
-        # print(self.output_layer.biases)
-
-    def fit(
-        self, epochs, batch_size, train_data, train_labels, valid_data, valid_labels
-    ):
-        """A method to train the model.
-
-        Args:
-            epochs (int): number of epochs.
-            batch_size (int): size of the batch.
-            train_data (np.array): training data.
-            train_labels (np.array): training labels.
-            valid_data (np.array): validation data.
-            valid_labels (np.array): validation labels.
-
-        Returns:
-            lists: lists of accuracies and losses for each epoch.
-        """
-        train_accs, train_losses = [], []
-        valid_accs, valid_losses = [], []
-        for epoch in range(epochs):
-            print("Epoch {}/{}".format(epoch + 1, epochs))
-
-            # print(
-            # "{}, {}".format(
-            # self.hidden_layers[2].weights[3, 3],
-            # self.hidden_layers[2].weights[3, 0],
-            # )
-            # )
-            # shuffle(train_data)
-            np.random.shuffle(train_data)
-            print("TRAIN:")
-            print(train_data[0, :])
-            for i in range(batch_size, len(train_data), batch_size):
-                data_sample = train_data[i - batch_size : i].T
-                sample_labels = train_labels[i - batch_size : i].T
-                pre_activations, activations, output = self.forward_prop(data_sample)
-                output_dws, output_dbs, layers_dws, layers_dbs = self.backward_prop(
-                    data_sample,
-                    pre_activations,
-                    activations,
-                    output - sample_labels,
-                )
-                # print("TUTAJ")
-                # print(output)
-                # print(output.shape)
-                # print(sample_labels)
-                # print(sample_labels.shape)
-                # print(np.mean(output - sample_labels, axis=0))
-                # print(self.hidden_layers[0].weights[0, 28])
-                # print("testuje")
-                # print(layers_dws[2][3, 3])
-                # print("przed")
-                # print(self.hidden_layers[2].weights[3, 3])
-                self.update_params(layers_dws, layers_dbs, output_dws, output_dbs)
-                # print(self.get_predicted_labels(output))
-                # print(np.argmax(sample_labels, axis=0))
-                # print(sample_labels.shape)
-                # print(
-                #     f"accuracy: {np.sum(self.get_predicted_labels(output) == np.argmax(sample_labels, axis=0)) / sample_labels.shape[1]}"
-                # )
-                # if epoch % 10 == 0:
-                #   print(
-                #       f"accuracy: {np.sum(self.get_predicted_labels(output) == np.argmax(sample_labels, axis=0)) / sample_labels.shape[1]}"
-                #   )
-
-            # print("testuje")
-            # print("po")
-            # print(self.hidden_layers[2].weights[3, 3])
-
-            train_acc, train_loss = self.evaluate(train_data, train_labels, "train")
-            train_accs.append(train_acc)
-            train_losses.append(train_loss)
-            valid_acc, valid_loss = self.evaluate(valid_data, valid_labels, "valid")
-            valid_accs.append(valid_acc)
-            valid_losses.append(valid_loss)
-            print("---------------------------------------------------------")
-        return train_accs, train_losses, valid_accs, valid_losses
-
-    def predict(self, data):
-        _, _, output = self.forward_prop(data.T)
-        # print("output")
-        # print(output)
-        return output
-
-    def get_predicted_labels(self, network_output):
-        # print(f"output shape: {network_output.shape}")
-        # max_ = np.argmax(network_output, axis=0)
-        # # print(np.max(max_))
-        # # print(np.argmax(network_output, axis=0))
-        # one_hot = np.zeros((max_.shape[0], self.output_size))
-        # one_hot[np.arange(max_.shape[0]), max_] = 1
-        # return one_hot
-        return np.argmax(network_output, axis=0)
-
-    def get_accuracy(self, data, labels):
-        # predictions = self.get_predicted_labels(self.predict(data))
-        # print("kiufe")
-        # print(predictions.shape)
-        # print(labels.shape)
-        # print(np.sum(np.argmax(labels, axis=1) == np.argmax(predictions, axis=1)))
-        # print(np.sum(predictions == labels))
-        # return np.sum(predictions == labels) / labels.shape[0]
-        # return (
-        #     np.sum(np.argmax(labels, axis=1) == np.argmax(predictions, axis=1))
-        #     / labels.shape[0]
-        # )
-        predictions = self.get_predicted_labels(self.predict(data))
-        return np.sum(predictions == np.argmax(labels, axis=1)) / labels.shape[0]
-
-    def get_loss(self, labels, network_output):
-        batch_size = labels.shape[0]
-        error = np.power(labels.T - network_output, 2)
-        mean_error = np.sum(error) / batch_size
-        return mean_error
-
-    def evaluate(self, data, labels, data_part):
-        accuracy = self.get_accuracy(data, labels)
-        print("{} data accuracy: {:.4f}".format(data_part.capitalize(), accuracy))
-        output = self.predict(data)
-        loss = self.get_loss(labels, output)
-        print("{} loss: {:.4f}".format(data_part, loss))
-        return accuracy, loss
-
     def backward_prop(self, input, pre_activations, activations, output_error):
         batch_size = output_error.shape[1]
-        dz_out = 2 * output_error
+
+        dz_out = output_error
         dw_out = 1 / batch_size * dz_out.dot(activations[-1].T)
         db_out = 1 / batch_size * np.sum(dz_out, 1, keepdims=True)
 
@@ -281,59 +89,127 @@ class Network(object):
                 dw_layer = 1 / batch_size * dz_layer.dot(input.T)
 
             db_layer = 1 / batch_size * np.sum(dz_layer, 1, keepdims=True)
-            # print(np.mean(dz_layer), np.mean(dw_layer))
             dz_layers.insert(0, dz_layer)
             dw_layers.insert(0, dw_layer)
-            # print(f"DW layer = {dw_layer}")
-            # print(f"DB layer = {db_layer}")
             db_layers.insert(0, db_layer)
 
-        # print("dw, db:")
-        # print(np.mean(dw_layers[-1], axis=0), np.mean(db_layers[-1], axis=0))
         return dw_out, db_out, dw_layers, db_layers
 
+    def update_params(self, layers_dWs, layers_dBs, output_dWs, output_dBs):
+        """A method to update the parameters of the model.
 
-if __name__ == "__main__":
+        Args:
+            layers_dWs (list): list of layers weights.
+            layers_dBs (list): list of layers biases.
+            output_dWs (np.array): array of output layer weights.
+            output_dBs (np.array): array of output layer biases.
+        """
+        for i in range(self.hidden_count):
 
-    from data_reader import DataReader
-    from supporting_methods import ReLu, softmax, sigmoid
-    from sklearn.datasets import load_digits
+            self.hidden_layers[i].weights -= self.learning_rate * layers_dWs[i]
 
-    dataset = load_digits()
+            self.hidden_layers[i].biases -= self.learning_rate * np.reshape(
+                layers_dBs[i], (self.hidden_layers[i].neurons_count, 1)
+            )
 
-    digits_data = dataset["data"]
+            # self.hidden_layers[i].vd_weights = (
+            #     0.9 * self.hidden_layers[i].vd_weights + (1.0 - 0.9) * layers_dWs[i]
+            # )
+            # self.hidden_layers[i].weights -= (
+            #     self.learning_rate * self.hidden_layers[i].vd_weights
+            # )
 
-    digits_labels = dataset["target"]
+            # self.hidden_layers[i].vd_biases = 0.9 * self.hidden_layers[i].vd_biases + (
+            #     1.0 - 0.9
+            # ) * np.reshape(layers_dBs[i], (self.hidden_layers[i].neurons_count, 1))
+            # self.hidden_layers[i].biases -= (
+            #     self.learning_rate * self.hidden_layers[i].vd_biases
+            # )
 
-    data_reader = DataReader(data=digits_data, labels=digits_labels)
+        self.output_layer.weights = (
+            self.output_layer.weights - self.learning_rate * output_dWs
+        )
 
-    (
-        train_data,
-        train_labels,
-        test_data,
-        test_labels,
-        valid_data,
-        valid_labels,
-    ) = data_reader.split_data()
+        self.output_layer.biases -= self.learning_rate * np.reshape(
+            output_dBs, (self.output_layer.neurons_count, 1)
+        )
+        # self.output_layer.vd_weights = (
+        #     0.9 * self.output_layer.vd_weights + (1.0 - 0.9) * output_dWs
+        # )
+        # self.output_layer.weights -= self.learning_rate * self.output_layer.vd_weights
 
-    input_size = train_data.shape[1]
-    output_size = train_labels.shape[1]
+        # self.output_layer.vd_biases = 0.9 * self.output_layer.vd_biases + (
+        #     1.0 - 0.9
+        # ) * np.reshape(output_dBs, (self.output_layer.neurons_count, 1))
+        # self.output_layer.biases -= self.learning_rate * self.output_layer.vd_biases
 
-    net = Network(
-        hidden_count=2,
-        hidden_size=20,
-        input_size=input_size,
-        output_size=output_size,
-        hidden_act_fun=ReLu,
-        output_act_fun=softmax,
-        learning_rate=0.2,
-    )
+    def fit(
+        self, epochs, batch_size, train_data, train_labels, valid_data, valid_labels
+    ):
+        """A method to train the model.
 
-    train_accs, train_losses, valid_accs, valid_losses = net.fit(
-        epochs=100,
-        batch_size=128,
-        train_data=train_data,
-        train_labels=train_labels,
-        valid_data=valid_data,
-        valid_labels=valid_labels,
-    )
+        Args:
+            epochs (int): number of epochs.
+            batch_size (int): size of the batch.
+            train_data (np.array): training data.
+            train_labels (np.array): training labels.
+            valid_data (np.array): validation data.
+            valid_labels (np.array): validation labels.
+
+        Returns:
+            lists: lists of accuracies and losses for each epoch.
+        """
+        train_accs, train_losses = [], []
+        valid_accs, valid_losses = [], []
+        for epoch in range(epochs):
+            print("Epoch {}/{}".format(epoch + 1, epochs))
+
+            permutation = np.random.permutation(train_data.shape[0])
+            train_data = train_data[permutation, :]
+            train_labels = train_labels[permutation, :]
+
+            for i in range(batch_size, len(train_data), batch_size):
+                data_sample = train_data[i - batch_size : i].T
+                sample_labels = train_labels[i - batch_size : i].T
+                pre_activations, activations, output = self.forward_prop(data_sample)
+                output_dws, output_dbs, layers_dws, layers_dbs = self.backward_prop(
+                    data_sample,
+                    pre_activations,
+                    activations,
+                    output - sample_labels,
+                )
+                self.update_params(layers_dws, layers_dbs, output_dws, output_dbs)
+
+            train_acc, train_loss = self.evaluate(train_data, train_labels, "train")
+            train_accs.append(train_acc)
+            train_losses.append(train_loss)
+            valid_acc, valid_loss = self.evaluate(valid_data, valid_labels, "valid")
+            valid_accs.append(valid_acc)
+            valid_losses.append(valid_loss)
+            print("---------------------------------------------------------")
+        return train_accs, train_losses, valid_accs, valid_losses
+
+    def predict(self, data):
+        _, _, output = self.forward_prop(data.T)
+        return output
+
+    def get_predicted_labels(self, network_output):
+        return np.argmax(network_output, axis=0)
+
+    def get_accuracy(self, data, labels):
+        predictions = self.get_predicted_labels(self.predict(data))
+        return np.sum(predictions == np.argmax(labels, axis=1)) / labels.shape[0]
+
+    def get_loss(self, data, labels):
+        network_output = self.predict(data)
+        batch_size = labels.shape[0]
+        error = np.power(labels.T - network_output, 2)
+        mean_error = np.sum(error) / batch_size
+        return mean_error
+
+    def evaluate(self, data, labels, data_part):
+        accuracy = self.get_accuracy(data, labels)
+        print("{} data accuracy: {:.4f}".format(data_part.capitalize(), accuracy))
+        loss = self.get_loss(data, labels)
+        print("{} loss: {:.4f}".format(data_part, loss))
+        return accuracy, loss
