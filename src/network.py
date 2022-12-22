@@ -1,6 +1,6 @@
 import numpy as np
 from layer import Layer
-from random import shuffle
+import matplotlib.pyplot as plt
 
 
 class Network(object):
@@ -216,3 +216,24 @@ class Network(object):
         loss = self.get_loss(data, labels)
         print("{} loss: {:.4f}".format(data_part, loss))
         return accuracy, loss
+
+    def test_prediction(self, data, labels, index):
+        current_image = data[index, :]
+        prediction = self.get_predicted_labels(
+            self.predict(np.reshape(current_image, (1, current_image.size)))
+        )
+        label = np.argmax(labels[index, :])
+        print("Prediction: ", prediction)
+        print(labels[index, :])
+        print("Label: ", label)
+
+        current_image = (
+            np.reshape(
+                current_image,
+                (int(np.sqrt(self.input_size)), int(np.sqrt(self.input_size))),
+            )
+            * 16
+        )
+        plt.gray()
+        plt.imshow(current_image, interpolation="nearest")
+        plt.show()
