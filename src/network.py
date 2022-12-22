@@ -106,42 +106,43 @@ class Network(object):
         """
         for i in range(self.hidden_count):
 
-            self.hidden_layers[i].weights -= self.learning_rate * layers_dWs[i]
+            # self.hidden_layers[i].weights -= self.learning_rate * layers_dWs[i]
 
-            self.hidden_layers[i].biases -= self.learning_rate * np.reshape(
-                layers_dBs[i], (self.hidden_layers[i].neurons_count, 1)
+            # self.hidden_layers[i].biases -= self.learning_rate * np.reshape(
+            #     layers_dBs[i], (self.hidden_layers[i].neurons_count, 1)
+            # )
+
+            self.hidden_layers[i].vd_weights = (
+                0.9 * self.hidden_layers[i].vd_weights + (1.0 - 0.9) * layers_dWs[i]
+            )
+            self.hidden_layers[i].weights -= (
+                self.learning_rate * self.hidden_layers[i].vd_weights
             )
 
-            # self.hidden_layers[i].vd_weights = (
-            #     0.9 * self.hidden_layers[i].vd_weights + (1.0 - 0.9) * layers_dWs[i]
-            # )
-            # self.hidden_layers[i].weights -= (
-            #     self.learning_rate * self.hidden_layers[i].vd_weights
-            # )
+            self.hidden_layers[i].vd_biases = 0.9 * self.hidden_layers[i].vd_biases + (
+                1.0 - 0.9
+            ) * np.reshape(layers_dBs[i], (self.hidden_layers[i].neurons_count, 1))
+            self.hidden_layers[i].biases -= (
+                self.learning_rate * self.hidden_layers[i].vd_biases
+            )
 
-            # self.hidden_layers[i].vd_biases = 0.9 * self.hidden_layers[i].vd_biases + (
-            #     1.0 - 0.9
-            # ) * np.reshape(layers_dBs[i], (self.hidden_layers[i].neurons_count, 1))
-            # self.hidden_layers[i].biases -= (
-            #     self.learning_rate * self.hidden_layers[i].vd_biases
-            # )
-
-        self.output_layer.weights = (
-            self.output_layer.weights - self.learning_rate * output_dWs
-        )
-
-        self.output_layer.biases -= self.learning_rate * np.reshape(
-            output_dBs, (self.output_layer.neurons_count, 1)
-        )
-        # self.output_layer.vd_weights = (
-        #     0.9 * self.output_layer.vd_weights + (1.0 - 0.9) * output_dWs
+        # self.output_layer.weights = (
+        #     self.output_layer.weights - self.learning_rate * output_dWs
         # )
-        # self.output_layer.weights -= self.learning_rate * self.output_layer.vd_weights
 
-        # self.output_layer.vd_biases = 0.9 * self.output_layer.vd_biases + (
-        #     1.0 - 0.9
-        # ) * np.reshape(output_dBs, (self.output_layer.neurons_count, 1))
-        # self.output_layer.biases -= self.learning_rate * self.output_layer.vd_biases
+        # self.output_layer.biases -= self.learning_rate * np.reshape(
+        #     output_dBs, (self.output_layer.neurons_count, 1)
+        # )
+
+        self.output_layer.vd_weights = (
+            0.9 * self.output_layer.vd_weights + (1.0 - 0.9) * output_dWs
+        )
+        self.output_layer.weights -= self.learning_rate * self.output_layer.vd_weights
+
+        self.output_layer.vd_biases = 0.9 * self.output_layer.vd_biases + (
+            1.0 - 0.9
+        ) * np.reshape(output_dBs, (self.output_layer.neurons_count, 1))
+        self.output_layer.biases -= self.learning_rate * self.output_layer.vd_biases
 
     def fit(
         self, epochs, batch_size, train_data, train_labels, valid_data, valid_labels
@@ -209,7 +210,9 @@ class Network(object):
 
     def evaluate(self, data, labels, data_part):
         accuracy = self.get_accuracy(data, labels)
-        print("{} data accuracy: {:.4f}".format(data_part.capitalize(), accuracy))
+        print(
+            "{} data accuracy: {:.2f}%".format(data_part.capitalize(), accuracy * 100)
+        )
         loss = self.get_loss(data, labels)
         print("{} loss: {:.4f}".format(data_part, loss))
         return accuracy, loss
