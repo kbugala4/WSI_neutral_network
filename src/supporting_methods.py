@@ -8,10 +8,16 @@ def ReLu(x, is_deriv=False):
         return x * (x >= 0)
 
 
-def sigmoid(x):
-    return 1.0 / (1.0 + np.exp(-x))
+def sigmoid(x, is_deriv=False):
+    f = 1.0 / (1.0 + np.exp(-x))
+    if is_deriv:
+        return f * (f - 1)
+    else:
+        return f
 
 
-def softmax(x):
-    print((np.exp(x) / np.sum(np.exp(x), axis=0)).shape)
-    return np.exp(x) / np.sum(np.exp(x), axis=0)
+def softmax(x, is_deriv=False):
+    exp = np.exp(x - x.max())
+    if is_deriv:
+        return exp / np.sum(exp, axis=0) * (1 - exp / np.sum(exp, axis=0))
+    return exp / np.sum(exp, axis=0)
