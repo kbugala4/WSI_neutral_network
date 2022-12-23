@@ -8,8 +8,6 @@ class Network(object):
         self,
         hidden_count,
         hidden_size,
-        input_size,
-        output_size,
         hidden_act_fun,
         output_act_fun,
         learning_rate,
@@ -17,25 +15,21 @@ class Network(object):
     ):
         self.hidden_count = hidden_count
         self.hidden_size = hidden_size
-        self.input_size = input_size
-        self.output_size = output_size
         self.hidden_act_fun = hidden_act_fun
         self.output_act_fun = output_act_fun
         self.learning_rate = learning_rate
         self.momentum = momentum
 
-        self.hidden_layers, self.output_layer = self.init_layers()
-
-    def init_layers(self):
+    def init_layers(self, input_size, output_size):
         hidden_layers = []
         for i in range(self.hidden_count):
             if i == 0:
-                layer = Layer(self.hidden_size, self.input_size)
+                layer = Layer(self.hidden_size, input_size)
             else:
                 layer = Layer(self.hidden_size, self.hidden_size)
             hidden_layers.append(layer)
 
-        output_layer = Layer(self.output_size, self.hidden_size)
+        output_layer = Layer(output_size, self.hidden_size)
         return hidden_layers, output_layer
 
     def forward_prop(self, batch):
@@ -154,6 +148,14 @@ class Network(object):
         Returns:
             lists: lists of accuracies and losses for each epoch.
         """
+
+        input_size = train_data.shape[1]
+        output_size = train_labels.shape[1]
+
+        self.hidden_layers, self.output_layer = self.init_layers(
+            input_size, output_size
+        )
+
         train_accs, train_losses = [], []
         valid_accs, valid_losses = [], []
         for epoch in range(epochs):
@@ -227,7 +229,7 @@ class Network(object):
         current_image = (
             np.reshape(
                 current_image,
-                (int(np.sqrt(self.input_size)), int(np.sqrt(self.input_size))),
+                (int(np.sqrt(data.shape[1])), int(np.sqrt(data.shape[1]))),
             )
             * 16
         )
