@@ -175,7 +175,7 @@ class Network(object):
                     data_sample,
                     pre_activations,
                     activations,
-                    output - sample_labels,
+                    2 * (output - sample_labels),
                     pre_output,
                 )
                 self.update_params(layers_dws, layers_dbs, output_dws, output_dbs)
