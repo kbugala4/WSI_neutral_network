@@ -13,6 +13,7 @@ class Network(object):
         hidden_act_fun,
         output_act_fun,
         learning_rate,
+        momentum,
     ):
         self.hidden_count = hidden_count
         self.hidden_size = hidden_size
@@ -21,6 +22,7 @@ class Network(object):
         self.hidden_act_fun = hidden_act_fun
         self.output_act_fun = output_act_fun
         self.learning_rate = learning_rate
+        self.momentum = momentum
 
         self.hidden_layers, self.output_layer = self.init_layers()
 
@@ -60,12 +62,14 @@ class Network(object):
         data = self.output_layer.weights.dot(curr_data) + self.output_layer.biases
         output = self.output_act_fun(data)
 
-        return pre_activations, activations, output
+        return pre_activations, activations, output, data
 
-    def backward_prop(self, input, pre_activations, activations, output_error):
+    def backward_prop(
+        self, input, pre_activations, activations, output_error, pre_output
+    ):
         batch_size = output_error.shape[1]
 
-        dz_out = output_error
+        dz_out = output_error / batch_size * self.output_act_fun(pre_output, True)
         dw_out = 1 / batch_size * dz_out.dot(activations[-1].T)
         db_out = 1 / batch_size * np.sum(dz_out, 1, keepdims=True)
 
@@ -106,41 +110,31 @@ class Network(object):
         """
         for i in range(self.hidden_count):
 
-            # self.hidden_layers[i].weights -= self.learning_rate * layers_dWs[i]
-
-            # self.hidden_layers[i].biases -= self.learning_rate * np.reshape(
-            #     layers_dBs[i], (self.hidden_layers[i].neurons_count, 1)
-            # )
-
             self.hidden_layers[i].vd_weights = (
-                0.9 * self.hidden_layers[i].vd_weights + (1.0 - 0.9) * layers_dWs[i]
+                self.momentum * self.hidden_layers[i].vd_weights
+                + (1.0 - self.momentum) * layers_dWs[i]
             )
             self.hidden_layers[i].weights -= (
                 self.learning_rate * self.hidden_layers[i].vd_weights
             )
 
-            self.hidden_layers[i].vd_biases = 0.9 * self.hidden_layers[i].vd_biases + (
-                1.0 - 0.9
-            ) * np.reshape(layers_dBs[i], (self.hidden_layers[i].neurons_count, 1))
+            self.hidden_layers[i].vd_biases = self.momentum * self.hidden_layers[
+                i
+            ].vd_biases + (1.0 - self.momentum) * np.reshape(
+                layers_dBs[i], (self.hidden_layers[i].neurons_count, 1)
+            )
             self.hidden_layers[i].biases -= (
                 self.learning_rate * self.hidden_layers[i].vd_biases
             )
 
-        # self.output_layer.weights = (
-        #     self.output_layer.weights - self.learning_rate * output_dWs
-        # )
-
-        # self.output_layer.biases -= self.learning_rate * np.reshape(
-        #     output_dBs, (self.output_layer.neurons_count, 1)
-        # )
-
         self.output_layer.vd_weights = (
-            0.9 * self.output_layer.vd_weights + (1.0 - 0.9) * output_dWs
+            self.momentum * self.output_layer.vd_weights
+            + (1.0 - self.momentum) * output_dWs
         )
         self.output_layer.weights -= self.learning_rate * self.output_layer.vd_weights
 
-        self.output_layer.vd_biases = 0.9 * self.output_layer.vd_biases + (
-            1.0 - 0.9
+        self.output_layer.vd_biases = self.momentum * self.output_layer.vd_biases + (
+            1.0 - self.momentum
         ) * np.reshape(output_dBs, (self.output_layer.neurons_count, 1))
         self.output_layer.biases -= self.learning_rate * self.output_layer.vd_biases
 
@@ -172,12 +166,15 @@ class Network(object):
             for i in range(batch_size, len(train_data), batch_size):
                 data_sample = train_data[i - batch_size : i].T
                 sample_labels = train_labels[i - batch_size : i].T
-                pre_activations, activations, output = self.forward_prop(data_sample)
+                pre_activations, activations, output, pre_output = self.forward_prop(
+                    data_sample
+                )
                 output_dws, output_dbs, layers_dws, layers_dbs = self.backward_prop(
                     data_sample,
                     pre_activations,
                     activations,
                     output - sample_labels,
+                    pre_output,
                 )
                 self.update_params(layers_dws, layers_dbs, output_dws, output_dbs)
 
@@ -191,7 +188,7 @@ class Network(object):
         return train_accs, train_losses, valid_accs, valid_losses
 
     def predict(self, data):
-        _, _, output = self.forward_prop(data.T)
+        _, _, output, _ = self.forward_prop(data.T)
         return output
 
     def get_predicted_labels(self, network_output):

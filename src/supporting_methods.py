@@ -16,6 +16,8 @@ def sigmoid(x, is_deriv=False):
         return f
 
 
-def softmax(x):
+def softmax(x, is_deriv=False):
     exp = np.exp(x - x.max())
+    if is_deriv:
+        return exp / np.sum(exp, axis=0) * (1 - exp / np.sum(exp, axis=0))
     return exp / np.sum(exp, axis=0)
